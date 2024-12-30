@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio:/data
+
+  postgres_db:
+    image: postgres:latest
+    container_name: postgres_db
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mynetwork
+    environment:
+      POSTGRES_USER: hello_django
+      POSTGRES_PASSWORD: hello_django
+      POSTGRES_DB: hello_django_dev
+    ports:
+      - "5432:5432"
+
+  django:
+    build:
+      context: .
+    container_name: django_app
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    networks:
+      - mynetwork
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres_db
+      - minio
+    environment:
+      DB_NAME: hello_django_dev
+      DB_USER: hello_django
+      DB_PASSWORD: hello_django
+      DB_HOST: postgres_db
+
+volumes:
+  minio:
+  postgres_data:
+networks:
+  mynetwork:
+    driver: bridge
