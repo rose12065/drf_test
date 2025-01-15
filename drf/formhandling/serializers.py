@@ -1,7 +1,15 @@
 # serializers.py
+from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
-from .models import CustomUser, Item
+from django.core.mail import send_mail
+from django.utils.timezone import now
 
+from .services import UserValidationService
+from .models import CustomUser, Item, LoginAttempt
+
+
+# model serializer for registration
 class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
@@ -10,12 +18,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'password': {'write_only': True},
         }
 
-class ItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Item
-        fields = ['category', 'subcategory', 'name', 'amount'] # feilds or exclude is a mandatory feild 
-
-        
     def create(self, validated_data):
         user = CustomUser(
             username=validated_data['username'],
@@ -27,3 +29,32 @@ class ItemSerializer(serializers.ModelSerializer):
         user.set_password(validated_data['password'])
         user.save()
         return user
+
+# Model serializer for items
+class ItemSerializer(serializers.Serializer):
+    category= serializers.CharField()
+    subcategory=serializers.CharField()
+    name=serializers.CharField()
+    amount=serializers.IntegerField()
+    
+    def create(self, validated_data):
+        return Item.objects.create(**validated_data)
+    
+    
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        email = data.get('email')
+        password = data.get('password')
+
+        # Use the validation service
+        try:
+            user = UserValidationService(email, password)
+        except ValueError as e:
+            raise serializers.ValidationError(str(e))
+
+        data['user'] = user
+        return data
+    

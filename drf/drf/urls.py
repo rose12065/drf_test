@@ -21,5 +21,5 @@ from formhandling import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('register/', include('formhandling.urls')),
+    path('auth/', include('formhandling.urls')),
 ]

@@ -31,6 +31,7 @@ services:
   django:
     build:
       context: .
+      dockerfile: Dockerfile
     container_name: django_app
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
@@ -42,11 +43,65 @@ services:
     depends_on:
       - postgres_db
       - minio
+      - redis
     environment:
       DB_NAME: hello_django_dev
       DB_USER: hello_django
       DB_PASSWORD: hello_django
       DB_HOST: postgres_db
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+
+  # react-app:
+  #   build:
+  #     context: .../front_end/Dockerfile
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:80"
+  #   volumes:
+  #     - ./src:/app/src
+  #     - /app/node_modules
+  #   environment:
+  #     - CHOKIDAR_USEPOLLING=true
+
+# Celery Service
+  celery_worker:
+      build: .
+      command: celery -A drf.celery worker -l INFO
+      volumes:
+          - .:/usr/src/app
+      networks:
+      - mynetwork
+      environment:
+          - DEBUG=1
+          - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+          - CELERY_BROKER=redis://redis:6379/0
+          - CELERY_BACKEND=redis://redis:6379/0
+          - CELERY_BROKER_URL=redis://redis:6379/0
+      depends_on:
+          - django
+          - redis
+          - postgres_db
+          - celery_beat
+
+  celery_beat:
+      build: .
+      command: celery -A drf beat --loglevel=info
+      volumes:
+        - .:/app
+      networks:
+      - mynetwork
+      depends_on:
+        - django
+        - redis
+        - postgres_db
+
+# Redis Service
+  redis:
+      image: "redis:alpine"
+      networks:
+      - mynetwork
+      ports:
+      - "6379:6379"
 
 volumes:
   minio:
